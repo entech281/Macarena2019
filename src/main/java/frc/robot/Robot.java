@@ -1,55 +1,226 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*----------------------------------------------------------------------------*/
-
 package frc.robot;
 
-import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.buttons.JoystickButton;
-import edu.wpi.first.wpilibj.command.Scheduler;
-import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.commands.ExtendCommand;
-import frc.robot.commands.RetractCommand;
-import frc.robot.subsystems.DriveSubsystem;
-import frc.robot.subsystems.ShooterSubsystem;
 import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.command.CommandGroup;
+import edu.wpi.first.wpilibj.command.Scheduler;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.Preferences;
+import frc.robot.commands.GrabberCloseCommand;
+import frc.robot.commands.GrabberLoadCommand;
+import frc.robot.commands.GrabberOpenCommand;
+import frc.robot.commands.GrabberShootCommand;
+import frc.robot.commands.GrabberStopCommand;
+import frc.robot.commands.LifterHomeCommand;
+import frc.robot.commands.LifterTopCommand;
+import frc.robot.commands.PushOutCubeAndOpenCommand;
+import frc.robot.commands.LifterLowerCommand;
+import frc.robot.commands.LifterRaiseCommand;
+import frc.robot.commands.LifterStopCommand;
+import frc.robot.commands.WristPivotDownCommand;
+import frc.robot.commands.WristPivotUpCommand;
+import frc.robot.commands.LifterRaiseSeconds;
+import frc.robot.logger.DataLoggerFactory;
+import frc.robot.strategy.AutoPlan;
+import frc.robot.strategy.AutoPlanComputer;
+import frc.robot.subsystems.GrabberSubsystem;
+import frc.robot.subsystems.LifterSubsystem;
+import frc.robot.subsystems.WristSubsystem;
+import frc.robot.subsystems.drive.BaseDriveSubsystem.DriveMode;
+import frc.robot.subsystems.drive.RealDriveSubsystem;
+import frc.robot.RobotMap.DigitalIO;
+import frc.robot.commands.CloseAndIntakeCommand;
+import frc.robot.commands.DriveForwardNoEncodersCommand;
+import frc.robot.commands.TurnRightNoEncodersCommand;
+
+
 /**
- * The VM is configured to automatically run this class, and to call the
- * functions corresponding to each mode, as described in the TimedRobot
- * documentation. If you change the name of this class or the package after
- * creating this project, you must also update the build.gradle file in the
- * project.
+ * The robot, only used in the real match. Cannot be instantiated outside of the
+ * match, so we want to minimize its functionality here.
+ * 
+ * In short-- anything in here can't be tested outside of running the real
+ * robot, so we want to be careful.
+ * 
+ * Since the robot knows about its subsystems, it makes sense for Robot to
+ * implement CommandFactory-- though that is not strictly necessary. In fact, it
+ * would be easy to move all of the subsystems out into another class, and have
+ * that one implement CommandFactory
  */
-public class Robot extends TimedRobot {
-   private Compressor compressor;
-   DriveSubsystem robotDrive = new DriveSubsystem();
-   ShooterSubsystem shooter = new ShooterSubsystem();
-  //Define joystick being used at USB port 1 on the Driver Station
-   Joystick m_driveStick = new Joystick(0);
+public class Robot extends IterativeRobot implements CommandFactory {
 
-   @Override
-   public void robotInit() {
-    compressor = new Compressor(10);
-    compressor.start();
-    shooter.initialize();
+    private RealDriveSubsystem driveSubsystem;
+    private OperatorInterface operatorInterface;
+    private LifterSubsystem lifterSubsystem;
+    private GrabberSubsystem grabberSubsystem;
+    private WristSubsystem wristSubsystem;
+    private Compressor compressor;
+    private AutoPlanComputer autoStrategySelector = new AutoPlanComputer();
+    DigitalInput leftPositionSwitch = new DigitalInput(DigitalIO.LEFT_SWITCH_POSITION);
+    DigitalInput rightPositionSwitch = new DigitalInput(DigitalIO.RIGHT_SWITCH_POSITION);
+    DigitalInput overrideSwitch = new DigitalInput(DigitalIO.PREFERENCE_SWITCH);
+    private FieldMessage fieldPose;
 
+    
+    /**
+     * This function is run when the robot is first started up and should be used
+     * for any initialization code.
+     */
 
-    JoystickButton shootButton= new JoystickButton(m_driveStick, 11);
-    JoystickButton retractButton= new JoystickButton(m_driveStick, 12);
-    shootButton.whenPressed(new ExtendCommand(shooter));
-    retractButton.whenPressed(new RetractCommand(shooter));
+    @Override
+    public void robotInit() {
+        
+        // create the objects for the real match
+        DataLoggerFactory.configureForMatch();
+
+        operatorInterface = new OperatorInterface(this);
+        driveSubsystem = new RealDriveSubsystem(operatorInterface);
+        lifterSubsystem = new LifterSubsystem();
+        grabberSubsystem= new GrabberSubsystem();
+        wristSubsystem = new WristSubsystem();
+        driveSubsystem.initialize();
+        operatorInterface.initialize();
+        lifterSubsystem.initialize();
+        grabberSubsystem.initialize();
+        wristSubsystem.initialize();
+        compressor = new Compressor(RobotMap.CAN.PC_MODULE);
+        compressor.start();
+        
+
     }
 
-     public void teleopPeriodic(){
-          SmartDashboard.putNumber("Joystick X", m_driveStick.getX());
-          SmartDashboard.putNumber("Joystick Y", m_driveStick.getY());
-          SmartDashboard.putNumber("Joystick Z", m_driveStick.getZ());
-          robotDrive.drive(m_driveStick.getX(), -m_driveStick.getY(), 0.0);
-          Scheduler.getInstance().run();
-     }
-  
+    
+    @Override
+    public void autonomousInit() {
+       
+        CommandGroup autoCommand = new CommandGroup();
+        if ( fieldPose.isOverrideSwitch()){
+            autoCommand.addSequential(
+                    new DriveForwardNoEncodersCommand(driveSubsystem, 1.75, 0.75));
+        }
+        else{
+            AutoPlan autoPlan = selectAutoToRun();
+            SmartDashboard.putString("Selected Auto", autoPlan+"");
+            driveSubsystem.setMode(DriveMode.POSITION_DRIVE);
+            AutoCommandFactory af = new AutoCommandFactory(lifterSubsystem, grabberSubsystem, wristSubsystem, driveSubsystem);
+            autoCommand = af.makeAutoCommand(autoPlan);
+        }
+        autoCommand.start();
+    }
+    
+    @Override
+    public void autonomousPeriodic() {
+        Scheduler.getInstance().run();
+    }
+
+    @Override
+    public void disabledInit() {
+        driveSubsystem.setMode(DriveMode.DISABLED);
+    }
+
+    @Override
+    public void disabledPeriodic() {
+        //this allows us to test very quickly without re-running auto at all.
+        //just flip the switches and we should the dashboard udpate with the right paths!
+        SmartDashboard.putString("SelectedAuto", selectAutoToRun()+"");
+            SmartDashboard.putBoolean("DIO L", leftPositionSwitch.get());
+            SmartDashboard.putBoolean("DIO R", rightPositionSwitch.get());
+            SmartDashboard.putBoolean("DIO O", overrideSwitch.get());
+        Scheduler.getInstance().run();
+    }
+
+    protected AutoPlan selectAutoToRun(){
+        String gameMessage = DriverStation.getInstance().getGameSpecificMessage();
+        if (( gameMessage == null ) || ( gameMessage.length() < 3 )) {
+            gameMessage = "   ";
+        }
+        Preferences p = Preferences.getInstance();
+        boolean override = p.getBoolean("STOP_AT_E",false);
+        fieldPose = new FieldMessageGetter(leftPositionSwitch.get(), rightPositionSwitch.get(), override )
+                .convertGameMessageToFieldMessage(gameMessage);
+        return autoStrategySelector.computePlanFromFieldPoseSwitches(fieldPose, operatorInterface.getBothThisSideScaleInAuto(),
+                                                                     operatorInterface.getFrontslashScaleInAuto(),
+                                                                     operatorInterface.getBackslashScaleInAuto(),
+                                                                     operatorInterface.getBothOppositeScaleInAuto() );
+    }
+    
+    @Override
+    public void teleopInit() {
+        driveSubsystem.setMode(DriveMode.SPEED_DRIVE);
+    }
+
+    @Override
+    public void teleopPeriodic() {
+        Scheduler.getInstance().run();
+    }
+
+    @Override
+    public LifterRaiseCommand createLifterRaiseCommand() {
+        return new LifterRaiseCommand(this.lifterSubsystem);
+    }
+
+    @Override
+    public LifterLowerCommand createLifterLowerCommand() {
+        return new LifterLowerCommand(this.lifterSubsystem);
+    }
+
+    @Override
+    public GrabberLoadCommand createGrabberLoadCommand() {
+        return new GrabberLoadCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public GrabberShootCommand createGrabberShootCommand() {
+        return new GrabberShootCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public GrabberStopCommand createGrabberStopCommand() {
+        return new GrabberStopCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public GrabberOpenCommand createGrabberOpenCommand() {
+        return new GrabberOpenCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public GrabberCloseCommand createGrabberCloseCommand() {
+        return new GrabberCloseCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public WristPivotUpCommand createWristPivotUpCommand() {
+        return new WristPivotUpCommand(this.wristSubsystem);
+    }
+
+    @Override
+    public WristPivotDownCommand createWristPivotDownCommand() {
+        return new WristPivotDownCommand(this.wristSubsystem);
+    }
+
+    @Override
+    public LifterHomeCommand createLifterHomeCommand() {
+        return new LifterHomeCommand(this.lifterSubsystem);
+    }
+
+    @Override
+    public LifterTopCommand createLifterTopCommand() {
+        return new LifterTopCommand(this.lifterSubsystem);
+    }
+
+    public LifterStopCommand createLifterStopCommand() {
+    	return new LifterStopCommand(this.lifterSubsystem);
+    }
+
+    @Override
+    public CloseAndIntakeCommand createCloseAndIntakeCommand() {
+        return new CloseAndIntakeCommand(this.grabberSubsystem);
+    }
+
+    @Override
+    public PushOutCubeAndOpenCommand createPushOutCubeAndOpenCommand() {
+        return new PushOutCubeAndOpenCommand(this.grabberSubsystem);
+    }
 }

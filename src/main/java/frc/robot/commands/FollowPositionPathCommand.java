@@ -1,0 +1,68 @@
+package frc.robot.commands;
+
+import java.util.List;
+
+import frc.robot.subsystems.Position;
+import frc.robot.subsystems.PositionCalculator;
+import frc.robot.subsystems.drive.BaseDriveSubsystem;
+
+public class FollowPositionPathCommand extends BaseCommand{
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((path == null) ? 0 : path.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        FollowPositionPathCommand other = (FollowPositionPathCommand) obj;
+        if (path == null) {
+            if (other.path != null)
+                return false;
+        } else if (!path.equals(other.path))
+            return false;
+        return true;
+    }
+    public BaseDriveSubsystem driveSubsystem;
+    public List<Position> path;
+    public FollowPositionPathCommand(BaseDriveSubsystem subsystem, List<Position> path) {
+        super(subsystem);
+        this.driveSubsystem = subsystem;
+        this.path = path;
+    }
+    public FollowPositionPathCommand(BaseDriveSubsystem subsystem, List<Position> path, double timeoutSeconds) {
+        super(subsystem,timeoutSeconds);
+        this.driveSubsystem = subsystem;
+        this.path = path;
+    }    
+    public FollowPositionPathCommand mirror() {
+        return new FollowPositionPathCommand(this.driveSubsystem,PositionCalculator.mirror(this.path));
+    }
+    
+    @Override
+    protected void initialize() {
+        for (Position p: path){
+            driveSubsystem.getPositionBuffer().addPosition(p);
+        }       
+    }
+    @Override
+    protected void end() {
+    	if ( isTimedOut() ) {
+    		driveSubsystem.getPositionBuffer().clear();
+    	}
+    }
+    @Override
+    protected boolean isFinished() {
+        return (! driveSubsystem.getPositionBuffer().hasNextPosition()) || isTimedOut() ;
+    }
+    
+}

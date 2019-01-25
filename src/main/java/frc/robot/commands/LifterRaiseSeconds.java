@@ -1,0 +1,37 @@
+package frc.robot.commands;
+
+import frc.robot.subsystems.LifterSubsystem;
+
+public class LifterRaiseSeconds extends BaseCommand {
+
+    private LifterSubsystem lifter;
+    public LifterRaiseSeconds(LifterSubsystem subsystem, double seconds) {
+        super(subsystem);
+        setTimeout(seconds);
+        this.lifter = subsystem;
+    }
+
+    @Override
+    protected void initialize() {
+    }
+
+    @Override
+    protected void execute() {
+        lifter.motorsUp(LifterSubsystem.UP_SPEED_PERCENT);
+    }
+
+    @Override
+	protected void end() {
+    	    lifter.motorsOff();
+	}
+
+	@Override
+    protected boolean isFinished() {
+        return isTimedOut();
+    }
+
+    @Override
+    protected void interrupted() {
+        end();
+    }
+}
