@@ -51,10 +51,16 @@ repositories {
 dependencies {
     compile wpi.deps.wpilib()
     compile wpi.deps.vendor.java()
+	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.0'
 
     nativeZip wpi.deps.vendor.jni(wpi.platforms.roborio)
     nativeDesktopZip wpi.deps.vendor.jni(wpi.platforms.desktop)
     testCompile 'junit:junit:4.12'
+//	testCompile 'org.powermock:powermock-api-mockito:1.6.1'
+//	testCompile 'org.powermock:powermock-module-junit4-rule-agent:1.6.1'
+//	testCompile 'org.powermock:powermock-module-junit4-rule:1.6.1'
+//	testCompile 'org.powermock:powermock-module-junit4:1.6.1'
+//	testCompile group: 'com.google.guava', name: 'guava', version: '23.6-jre'
 }
 
 // Setting up my Jar File. In this case, adding all libraries into the main jar ('fat jar')

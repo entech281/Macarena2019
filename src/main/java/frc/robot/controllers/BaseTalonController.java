@@ -34,7 +34,7 @@ public abstract class BaseTalonController {
 		if (talon.getControlMode().equals(ControlMode.Follower)) {
 			return null;
 		} else {
-			return new Integer(this.getTalon().getSelectedSensorPosition(TalonSettings.PID_SLOT));
+			return Integer.valueOf(this.getTalon().getSelectedSensorPosition(TalonSettings.PID_SLOT));
 		}
 
 	}

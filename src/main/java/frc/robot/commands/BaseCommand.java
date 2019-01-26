@@ -1,8 +1,8 @@
 package frc.robot.commands;
 
 import edu.wpi.first.wpilibj.command.Command;
-import frc.robot.logger.DataLogger;
-import frc.robot.logger.DataLoggerFactory;
+//SpotBugs: import frc.robot.logger.DataLogger;
+//SpotBugs: import frc.robot.logger.DataLoggerFactory;
 import frc.robot.subsystems.BaseSubsystem;
 
 /**
@@ -14,7 +14,7 @@ import frc.robot.subsystems.BaseSubsystem;
  */
 public abstract class BaseCommand extends Command {
 
-    protected DataLogger dataLogger;
+    // protected DataLogger dataLogger;
     public static final double UNLIMITED_TIMEOUT = 100000000;
 
     public BaseCommand(BaseSubsystem subsystem) {
@@ -29,7 +29,7 @@ public abstract class BaseCommand extends Command {
      */
     public BaseCommand(BaseSubsystem subsystem, double timeOut) {
         super(timeOut);
-        this.dataLogger = DataLoggerFactory.getLoggerFactory().createDataLogger(this.getName());
+        //SpotBugs: this.dataLogger = DataLoggerFactory.getLoggerFactory().createDataLogger(this.getName());
 
         if (subsystem != null) {
             requires(subsystem);

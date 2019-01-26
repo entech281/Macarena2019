@@ -24,7 +24,7 @@ public abstract class BaseDriveSubsystem extends BaseSubsystem {
 	protected BaseDriveController currentController = new NullController();
 	
 	protected PositionBuffer positionBuffer = new PositionBuffer();
-	protected boolean calibrated = false;
+	//SpotBugs: protected boolean calibrated = false;
 	
 	/**
 	 * Changes modes, and returns true if the change worked, false if it didnt
@@ -71,7 +71,7 @@ public abstract class BaseDriveSubsystem extends BaseSubsystem {
 
 	}
 	
-	private class NullController extends BaseDriveController{
+	private static class NullController extends BaseDriveController{
 
         @Override
         public void activate() {  

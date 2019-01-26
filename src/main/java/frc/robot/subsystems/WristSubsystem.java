@@ -12,7 +12,7 @@ public class WristSubsystem extends BaseSubsystem {
 
     private DoubleSolenoid solenoid;
 
-    private boolean wristUp;
+    //SpotBugs: private boolean wristUp;
 
     
     public WristSubsystem() {
@@ -21,7 +21,7 @@ public class WristSubsystem extends BaseSubsystem {
     @Override
     public void initialize() {
         solenoid = new DoubleSolenoid(RobotMap.CAN.PC_MODULE, PCM.Wrist.UP, PCM.Wrist.DOWN);
-        wristUp = true;
+        //SpotBugs: wristUp = true;
         //1 up = new Solenoid(RobotMap.CAN.PC_MODULE, PCM.Wrist.UP);
         //1 down = new Solenoid(RobotMap.CAN.PC_MODULE,PCM.Wrist.DOWN);
 
@@ -44,14 +44,14 @@ public class WristSubsystem extends BaseSubsystem {
     }
 
     public void pivotUp() {
-        wristUp = true;
+        //SpotBugs: wristUp = true;
         solenoid.set(DoubleSolenoid.Value.kForward);
         //1 up.set(false);
         //1 down.set(false);
     }
     
     public void pivotDown() {
-        wristUp = false;
+        //SpotBugs: wristUp = false;
         solenoid.set(DoubleSolenoid.Value.kReverse);
         //1 up.set(true);
         //1 down.set(true);
